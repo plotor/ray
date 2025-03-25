@@ -271,6 +271,7 @@ class AutoscalingState:
         `_skip_bound_check` is True, then the bounds are not applied.
         """
 
+        # 计算 autoscaling 的目标副本数
         decision_num_replicas = self._policy(
             curr_target_num_replicas=curr_target_num_replicas,
             total_num_requests=self.get_total_num_requests(),
@@ -326,6 +327,7 @@ class AutoscalingStateManager:
     """
 
     def __init__(self):
+        # 记录所有 deployment 的 autoscaling 状态
         self._autoscaling_states: Dict[DeploymentID, AutoscalingState] = {}
 
     def register_deployment(
@@ -336,6 +338,10 @@ class AutoscalingStateManager:
     ) -> int:
         """Register autoscaling deployment info."""
         assert info.deployment_config.autoscaling_config
+        logger.info(
+            f"Registering deployment[{deployment_id}] "
+            f"for autoscaling: {info.deployment_config.autoscaling_config}"
+        )
         if deployment_id not in self._autoscaling_states:
             self._autoscaling_states[deployment_id] = AutoscalingState(deployment_id)
         return self._autoscaling_states[deployment_id].register(

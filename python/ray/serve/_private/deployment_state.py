@@ -1301,6 +1301,7 @@ class DeploymentState:
         """
         Check if the deployment is under autoscaling
         """
+        # 只有配置了 autoscaling_config，才会在部署时注册 AutoscalingState 信息
         return self._id in self._autoscaling_state_manager._autoscaling_states
 
     def get_checkpoint_data(self) -> DeploymentTargetState:
@@ -1583,6 +1584,7 @@ class DeploymentState:
         if not deployment_settings_changed and not target_capacity_changed:
             return False
 
+        # 如果有配置 autoscaling config，则注册 autoscaling 状态
         if deployment_info.deployment_config.autoscaling_config:
             target_num_replicas = self._autoscaling_state_manager.register_deployment(
                 self._id, deployment_info, self._target_state.target_num_replicas
@@ -1635,11 +1637,13 @@ class DeploymentState:
         if self._target_state.deleting:
             return
 
+        # 计算目标副本数
         decision_num_replicas = self._autoscaling_state_manager.get_target_num_replicas(
             deployment_id=self._id,
             curr_target_num_replicas=self._target_state.target_num_replicas,
         )
 
+        # 无需扩缩容
         if (
             decision_num_replicas is None
             or decision_num_replicas == self._target_state.target_num_replicas
@@ -2675,7 +2679,9 @@ class DeploymentStateManager:
 
         # STEP 1: Update current state
         for deployment_state in self._deployment_states.values():
+            # 仅对配置了 autoscaling_config 的 deployment 执行
             if deployment_state.should_autoscale():
+                # 依据指标按照 autoscaling policy 计算新的 replica 数量，并更新部署状态信息
                 deployment_state.autoscale()
 
             deployment_state.check_and_update_replicas()

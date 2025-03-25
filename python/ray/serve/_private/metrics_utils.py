@@ -23,9 +23,9 @@ class MetricsPusher:
     """Periodically runs registered asyncio tasks."""
 
     def __init__(
-        self,
-        *,
-        async_sleep: Optional[Callable[[int], None]] = None,
+            self,
+            *,
+            async_sleep: Optional[Callable[[int], None]] = None,
     ):
         self._async_sleep = async_sleep or asyncio.sleep
         self._tasks: Dict[str, _MetricsTask] = dict()
@@ -73,10 +73,10 @@ class MetricsPusher:
                 sleep_task.cancel()
 
     def register_or_update_task(
-        self,
-        name: str,
-        task_func: Callable,
-        interval_s: int,
+            self,
+            name: str,
+            task_func: Callable,
+            interval_s: int,
     ) -> None:
         """Register a task under the provided name, or update it.
 
@@ -151,7 +151,7 @@ class InMemoryMetricsStore:
                 self.data[key] = self._get_datapoints(key, start_timestamp_s)
 
     def _get_datapoints(
-        self, key: Hashable, window_start_timestamp_s: float
+            self, key: Hashable, window_start_timestamp_s: float
     ) -> List[float]:
         """Get all data points given key after window_start_timestamp_s"""
 
@@ -166,7 +166,7 @@ class InMemoryMetricsStore:
         return datapoints[idx:]
 
     def window_average(
-        self, key: Hashable, window_start_timestamp_s: float, do_compact: bool = True
+            self, key: Hashable, window_start_timestamp_s: float, do_compact: bool = True
     ) -> Optional[float]:
         """Perform a window average operation for metric `key`
 
@@ -192,7 +192,7 @@ class InMemoryMetricsStore:
         return sum(point.value for point in points_after_idx) / len(points_after_idx)
 
     def max(
-        self, key: Hashable, window_start_timestamp_s: float, do_compact: bool = True
+            self, key: Hashable, window_start_timestamp_s: float, do_compact: bool = True
     ):
         """Perform a max operation for metric `key`.
 

@@ -260,6 +260,9 @@ class ServeController:
             replica_id, window_avg, send_timestamp
         )
 
+    def record_metrics(self, replica_id: str, metrics: str):
+        logger.info(f"Received metrics from replica {replica_id}: {metrics}")
+
     def record_handle_metrics(
         self,
         deployment_id: str,
@@ -399,6 +402,7 @@ class ServeController:
 
             try:
                 dsm_update_start_time = time.time()
+                # 更新当前应用内所有 Deployment 的状态
                 any_recovering = self.deployment_state_manager.update()
                 self.dsm_update_duration_gauge_s.set(
                     time.time() - dsm_update_start_time
@@ -417,6 +421,7 @@ class ServeController:
 
             try:
                 asm_update_start_time = time.time()
+                # 更新每个 application 的状态
                 self.application_state_manager.update()
                 self.asm_update_duration_gauge_s.set(
                     time.time() - asm_update_start_time

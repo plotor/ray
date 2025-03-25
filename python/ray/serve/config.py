@@ -43,6 +43,8 @@ class AutoscalingConfig(BaseModel):
 
     target_ongoing_requests: PositiveFloat = DEFAULT_TARGET_ONGOING_REQUESTS
 
+    custom_metrics: Optional[List[str]] = None
+
     # How often to scrape for metrics
     metrics_interval_s: PositiveFloat = 10.0
     # Time window to average over for metrics.
@@ -181,7 +183,7 @@ class ProxyLocation(str, Enum):
 
     @classmethod
     def _to_deployment_mode(
-        cls, proxy_location: Union["ProxyLocation", str]
+            cls, proxy_location: Union["ProxyLocation", str]
     ) -> DeploymentMode:
         if isinstance(proxy_location, str):
             proxy_location = ProxyLocation(proxy_location)
@@ -197,7 +199,7 @@ class ProxyLocation(str, Enum):
 
     @classmethod
     def _from_deployment_mode(
-        cls, deployment_mode: Optional[Union[DeploymentMode, str]]
+            cls, deployment_mode: Optional[Union[DeploymentMode, str]]
     ) -> Optional["ProxyLocation"]:
         """Converts DeploymentMode enum into ProxyLocation enum.
 

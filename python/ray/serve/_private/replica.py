@@ -22,6 +22,7 @@ from typing import (
     Union,
 )
 
+import requests
 import starlette.responses
 from starlette.types import ASGIApp, Message
 
@@ -185,6 +186,13 @@ class ReplicaMetricsManager:
         ):
             self._metrics_pusher.start()
 
+            # 推送本地指标
+            self._metrics_pusher.register_or_update_task(
+                self.PUSH_METRICS_TO_CONTROLLER_TASK_NAME,
+                self._push_metrics,
+                self._autoscaling_config.metrics_interval_s,
+            )
+
             # Push autoscaling metrics to the controller periodically.
             self._metrics_pusher.register_or_update_task(
                 self.PUSH_METRICS_TO_CONTROLLER_TASK_NAME,
@@ -234,6 +242,19 @@ class ReplicaMetricsManager:
             ),
             send_timestamp=time.time(),
         )
+
+    def _push_metrics(self) -> Response:
+        """Fetch local metrics from the controller."""
+        response = requests.get(f"http://127.0.0.1:8080/")
+        if response.status_code != 200:
+            logger.warning(f"Fetch local metrics error, code: {response.status_code}")
+            return response
+
+        self._controller_handle.record_metrics.remote(
+            replica_id=self._replica_id, metrics=response.text
+        )
+
+        return response
 
     def _add_autoscaling_metrics_point(self) -> None:
         self._metrics_store.add_metrics_point(

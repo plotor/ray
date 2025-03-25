@@ -83,12 +83,12 @@ def _calculate_desired_num_replicas(
 
 @PublicAPI(stability="alpha")
 def replica_queue_length_autoscaling_policy(
-    curr_target_num_replicas: int,
-    total_num_requests: int,
-    num_running_replicas: int,
+    curr_target_num_replicas: int, # 当前期望运行的副本数
+    total_num_requests: int, # 请求数量
+    num_running_replicas: int, # 运行中的副本数
     config: Optional[AutoscalingConfig],
-    capacity_adjusted_min_replicas: int,
-    capacity_adjusted_max_replicas: int,
+    capacity_adjusted_min_replicas: int, # 副本数下届
+    capacity_adjusted_max_replicas: int, # 副本数上届
     policy_state: Dict[str, Any],
 ) -> int:
     """The default autoscaling policy based on basic thresholds for scaling.
@@ -100,6 +100,16 @@ def replica_queue_length_autoscaling_policy(
     `get_decision_num_replicas` is called once every CONTROL_LOOP_PERIOD_S
     seconds.
     """
+
+    # logger.info(
+    #     msg=f"Cal the decision num replicas by default autoscaling policy, "
+    #         f"curr_target_num_replicas: {curr_target_num_replicas}, "
+    #         f"total_num_requests: {total_num_requests}, "
+    #         f"num_running_replicas: {num_running_replicas}, "
+    #         f"capacity_adjusted_min_replicas: {capacity_adjusted_min_replicas}, "
+    #         f"capacity_adjusted_max_replicas: {capacity_adjusted_max_replicas}"
+    # )
+
     decision_counter = policy_state.get("decision_counter", 0)
     if num_running_replicas == 0:
         # When 0 replicas and queries are queued, scale up the replicas
