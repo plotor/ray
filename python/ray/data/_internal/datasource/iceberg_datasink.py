@@ -3,7 +3,10 @@ Module to write a Ray Dataset into an iceberg table, by using the Ray Datasink A
 """
 import logging
 
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Literal, Union
+
+from pyiceberg.expressions import BooleanExpression, AlwaysFalse
+from pyiceberg.table import ALWAYS_TRUE
 
 from ray.data.datasource.datasink import Datasink
 from ray.util.annotations import DeveloperAPI
@@ -11,6 +14,7 @@ from ray.data.block import BlockAccessor, Block
 from ray.data._internal.execution.interfaces import TaskContext
 from ray.data.datasource.datasink import WriteResult
 import uuid
+from importlib.metadata import version
 
 if TYPE_CHECKING:
     from pyiceberg.catalog import Catalog
@@ -34,6 +38,9 @@ class IcebergDatasink(Datasink[List["DataFile"]]):
         table_identifier: str,
         catalog_kwargs: Optional[Dict[str, Any]] = None,
         snapshot_properties: Optional[Dict[str, str]] = None,
+        mode: Literal["create", "append", "overwrite"] = "append",
+        overwrite_filter: Union[BooleanExpression, str] = ALWAYS_TRUE,
+        case_sensitive: bool = True,
     ):
         """
         Initialize the IcebergDatasink
@@ -55,6 +62,9 @@ class IcebergDatasink(Datasink[List["DataFile"]]):
         self._snapshot_properties = (
             snapshot_properties if snapshot_properties is not None else {}
         )
+        self._mode = mode
+        self._overwrite_filter = overwrite_filter
+        self._case_sensitive = case_sensitive
 
         if "name" in self._catalog_kwargs:
             self._catalog_name = self._catalog_kwargs.pop("name")
@@ -85,7 +95,17 @@ class IcebergDatasink(Datasink[List["DataFile"]]):
 
     def on_write_start(self) -> None:
         """Prepare for the transaction"""
-        from pyiceberg.table import PropertyUtil, TableProperties
+        from pyiceberg.table import TableProperties
+
+        # Determine the PyIceberg version to handle backward compatibility
+        pyiceberg_version = version("pyiceberg")
+
+        if pyiceberg_version >= "0.9.0":
+            from pyiceberg.utils.properties import property_as_bool
+        else:
+            from pyiceberg.table import PropertyUtil
+
+            property_as_bool = PropertyUtil.property_as_bool
 
         catalog = self._get_catalog()
         table = catalog.load_table(self.table_identifier)
@@ -103,11 +123,19 @@ class IcebergDatasink(Datasink[List["DataFile"]]):
                 f"Not all partition types are supported for writes. Following partitions cannot be written using pyarrow: {unsupported_partitions}."
             )
 
-        self._manifest_merge_enabled = PropertyUtil.property_as_bool(
+        self._manifest_merge_enabled = property_as_bool(
             self._table_metadata.properties,
             TableProperties.MANIFEST_MERGE_ENABLED,
             TableProperties.MANIFEST_MERGE_ENABLED_DEFAULT,
         )
+
+        if self._mode == "overwrite" and self._overwrite_filter != AlwaysFalse():
+            # Only delete when the filter is != AlwaysFalse
+            self._txn.delete(
+                delete_filter=self._overwrite_filter,
+                case_sensitive=self._case_sensitive,
+                snapshot_properties=self._snapshot_properties,
+            )
 
     def write(
         self, blocks: Iterable[Block], ctx: TaskContext

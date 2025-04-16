@@ -23,6 +23,7 @@ from typing import (
 )
 
 import numpy as np
+from pyiceberg.expressions.literals import BooleanLiteral
 
 import ray
 import ray.cloudpickle as pickle
@@ -3318,6 +3319,9 @@ class Dataset:
         table_identifier: str,
         catalog_kwargs: Optional[Dict[str, Any]] = None,
         snapshot_properties: Optional[Dict[str, str]] = None,
+        mode: Literal["create", "append", "overwrite"] = "append",
+        overwrite_filter: str = "true",
+        case_sensitive: bool = True,
         ray_remote_args: Dict[str, Any] = None,
         concurrency: Optional[int] = None,
     ) -> None:
@@ -3357,7 +3361,12 @@ class Dataset:
         """
 
         datasink = IcebergDatasink(
-            table_identifier, catalog_kwargs, snapshot_properties
+            table_identifier=table_identifier,
+            catalog_kwargs=catalog_kwargs,
+            snapshot_properties=snapshot_properties,
+            mode=mode,
+            overwrite_filter=overwrite_filter,
+            case_sensitive=case_sensitive,
         )
 
         self.write_datasink(
