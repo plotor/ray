@@ -1498,6 +1498,7 @@ def init(
             f"variable {ray_constants.RAY_ADDRESS_ENVIRONMENT_VARIABLE}"
         )
 
+    # 走 ray client 模式
     if address is not None and "://" in address:
         # Address specified a protocol, use ray client
         builder = ray.client(address, _deprecation_warn_enabled=False)
@@ -1551,6 +1552,7 @@ def init(
     try:
         import resource
 
+        # 校验系统 file descriptor 配置
         soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
         if soft < hard:
             # https://github.com/ray-project/ray/issues/12059

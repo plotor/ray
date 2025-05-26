@@ -652,6 +652,7 @@ class Dataset:
         # to call `map_groups` with  GPUs, we need a separate method that doesn't
         # perform batch size validation.
 
+        # 基于 concurrency 计算 ComputeStrategy
         compute = get_compute_strategy(
             fn,
             fn_constructor_args=fn_constructor_args,
@@ -665,12 +666,14 @@ class Dataset:
         if num_gpus is not None:
             ray_remote_args["num_gpus"] = num_gpus
 
+        # 计算 batch_format，默认为 numpy
         batch_format = _apply_batch_format(batch_format)
 
         min_rows_per_bundled_input = None
         if batch_size is not None and batch_size != "default":
             # Enable blocks bundling when batch_size is specified by caller.
             min_rows_per_bundled_input = batch_size
+        # 计算 batch_size，默认为 1024
         batch_size = _apply_batch_size(batch_size)
 
         if batch_format not in VALID_BATCH_FORMATS:
@@ -679,6 +682,7 @@ class Dataset:
                 f"{batch_format}"
             )
 
+        # 添加 MapBatches 算子到 LogicalPlan
         plan = self._plan.copy()
         map_batches_op = MapBatches(
             self._logical_plan.dag,
@@ -1232,12 +1236,14 @@ class Dataset:
             ray_remote_args: Additional resource requirements to request from
                 ray (e.g., num_gpus=1 to request GPUs for the map tasks).
         """
+        # 基于并行度和 UDF 类型设置 ComputeStrategy
         compute = get_compute_strategy(
             fn,
             compute=compute,
             concurrency=concurrency,
         )
 
+        # 添加 Filter 算子到 LogicalPlan
         plan = self._plan.copy()
         op = Filter(
             input_op=self._logical_plan.dag,
@@ -3832,6 +3838,7 @@ class Dataset:
                 soft=False,
             )
 
+        # 添加 Write 算子到 LogicalPlan
         plan = self._plan.copy()
         write_op = Write(
             self._logical_plan.dag,
@@ -4880,6 +4887,7 @@ class Dataset:
         Returns:
             A MaterializedDataset holding the materialized data blocks.
         """
+        # 将当前 DataSet 转化成 MaterializedDataset（深拷贝）
         copy = Dataset.copy(self, _deep_copy=True, _as=MaterializedDataset)
         copy._plan.execute()
 

@@ -450,6 +450,7 @@ class ExecutionPlan:
         # Always used the saved context for execution.
         context = self._context
 
+        # 校验当前 Ray 集群是否有可用的 CPU 资源
         if not ray.available_resources().get("CPU"):
             if log_once("cpu_warning"):
                 logger.warning(
@@ -460,6 +461,8 @@ class ExecutionPlan:
                     "for more details: "
                     "https://docs.ray.io/en/latest/data/data-internals.html#ray-data-and-tune"  # noqa: E501
                 )
+
+        # 判断是否已经执行过计划
         if not self.has_computed_output():
             from ray.data._internal.execution.legacy_compat import (
                 _get_initial_stats_from_plan,
@@ -491,6 +494,7 @@ class ExecutionPlan:
                 )
 
                 metrics_tag = create_dataset_tag(self._dataset_name, self._dataset_uuid)
+                # 创建 StreamingExecutor
                 executor = StreamingExecutor(
                     copy.deepcopy(context.execution_options),
                     metrics_tag,

@@ -101,7 +101,7 @@ def execute_to_legacy_block_list(
     executor: Executor,
     plan: ExecutionPlan,
     dataset_uuid: str,
-    preserve_order: bool,
+    preserve_order: bool, # 是否在执行过程中保持顺序
 ) -> BlockList:
     """Execute a plan with the new executor and translate it into a legacy block list.
 
@@ -114,12 +114,15 @@ def execute_to_legacy_block_list(
     Returns:
         The output as a legacy block list.
     """
+    # LogicalPlan -> PhysicalPlan
     dag, stats = _get_execution_dag(
         executor,
         plan,
         preserve_order,
     )
+    # 执行 PhysicalPlan
     bundles = executor.execute(dag, initial_stats=stats)
+    # 转换成 Block 列表
     block_list = _bundles_to_block_list(bundles)
     # Set the stats UUID after execution finishes.
     _set_stats_uuid_recursive(executor.get_stats(), dataset_uuid)
@@ -137,6 +140,7 @@ def _get_execution_dag(
         record_operators_usage(plan._logical_plan.dag)
 
     # Get DAG of physical operators and input statistics.
+    # LogicalPlan -> Optimized LogicalPlan -> PhysicalPlan -> Optimized PhysicalPlan
     dag = get_execution_plan(plan._logical_plan).dag
     stats = _get_initial_stats_from_plan(plan)
 

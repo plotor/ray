@@ -361,6 +361,7 @@ def read_datasource(
     Returns:
         :class:`~ray.data.Dataset` that reads data from the :class:`~ray.data.Datasource`.
     """  # noqa: E501
+    # 获取参数中指定的并行度配置，如果没有指定则为 -1
     parallelism = _get_num_output_blocks(parallelism, override_num_blocks)
 
     ctx = DataContext.get_current()
@@ -368,15 +369,18 @@ def read_datasource(
     if ray_remote_args is None:
         ray_remote_args = {}
 
+    # 如果不支持分布式读，则使用节点亲和性调度策略
     if not datasource.supports_distributed_reads:
         ray_remote_args["scheduling_strategy"] = NodeAffinitySchedulingStrategy(
             ray.get_runtime_context().get_node_id(),
             soft=False,
         )
 
+    # 获取调度策略配置
     if "scheduling_strategy" not in ray_remote_args:
         ray_remote_args["scheduling_strategy"] = ctx.scheduling_strategy
 
+    # 对于新版的 ray，这里等价于直接返回 datasource
     datasource_or_legacy_reader = _get_datasource_or_legacy_reader(
         datasource,
         ctx,
@@ -384,6 +388,7 @@ def read_datasource(
     )
 
     cur_pg = ray.util.get_current_placement_group()
+    # 计算加载数据集并行度
     requested_parallelism, _, inmemory_size = _autodetect_parallelism(
         parallelism,
         ctx.target_max_block_size,
@@ -394,6 +399,7 @@ def read_datasource(
 
     # TODO(hchen/chengsu): Remove the duplicated get_read_tasks call here after
     # removing LazyBlockList code path.
+    # 基于并行度创建对应的 ReadTask，每个 ReadTask 会分配一个或多个文件，并行度不会超过文件数目
     read_tasks = datasource_or_legacy_reader.get_read_tasks(requested_parallelism)
     import uuid
 
@@ -408,12 +414,13 @@ def read_datasource(
         datasource_or_legacy_reader,
         parallelism,
         inmemory_size,
-        len(read_tasks) if read_tasks else 0,
+        len(read_tasks) if read_tasks else 0, # 一个 ReadTask 一个输出
         ray_remote_args,
         concurrency,
     )
     execution_plan = ExecutionPlan(stats)
     logical_plan = LogicalPlan(read_op, execution_plan._context)
+    # 创建 Dataset，包含 LogicalPlan
     return Dataset(
         plan=execution_plan,
         logical_plan=logical_plan,
@@ -1353,6 +1360,7 @@ def read_csv(
     if meta_provider is None:
         meta_provider = DefaultFileMetadataProvider()
 
+    # 创建 DataSource 对象
     datasource = CSVDatasource(
         paths,
         arrow_csv_args=arrow_csv_args,
@@ -1366,6 +1374,9 @@ def read_csv(
         include_paths=include_paths,
         file_extensions=file_extensions,
     )
+    # 按照启发式策略计算并行度
+    # 创建 ReadTask 列表，一个并行度对应一个 ReadTask
+    # 封装 ReadTask 列表为 LogicalPlan，并进一步封装成 Dataset
     return read_datasource(
         datasource,
         parallelism=parallelism,

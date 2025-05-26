@@ -62,13 +62,16 @@ class Datasource:
 
     @property
     def should_create_reader(self) -> bool:
+        # 是否实现了 Datasource#get_read_tasks 方法
         has_implemented_get_read_tasks = (
             type(self).get_read_tasks is not Datasource.get_read_tasks
         )
+        # 是否实现了 Datasource#estimate_inmemory_data_size 方法
         has_implemented_estimate_inmemory_data_size = (
             type(self).estimate_inmemory_data_size
             is not Datasource.estimate_inmemory_data_size
         )
+        # 只要上述两个方法中有一个没有实现，就返回 True
         return (
             not has_implemented_get_read_tasks
             or not has_implemented_estimate_inmemory_data_size

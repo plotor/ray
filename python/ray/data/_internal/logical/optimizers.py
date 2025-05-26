@@ -88,7 +88,27 @@ def get_execution_plan(logical_plan: LogicalPlan) -> PhysicalPlan:
     (2) planning: convert logical to physical operators.
     (3) physical optimization: optimize physical operators.
     """
+    # 对 LogicalPlan 执行优化得到 Optimized LogicalPlan，示例：
+    # Read[ReadCSV]
+    # -> Filter[Filter(<lambda>)]
+    #    -> MapBatches[MapBatches(cal_image_size)]
+    #       -> Project[Project]
+    #          -> Limit[limit=10]
+    #             -> Write[Write]
     optimized_logical_plan = LogicalOptimizer().optimize(logical_plan)
     logical_plan._dag = optimized_logical_plan.dag
+    # 将 Optimized LogicalPlan 转换成 PhysicalPlan，示例：
+    # InputDataBuffer[Input]
+    # -> TaskPoolMapOperator[ReadCSV]
+    #    -> TaskPoolMapOperator[Filter(<lambda>)]
+    #       -> TaskPoolMapOperator[MapBatches(cal_image_size)]
+    #          -> TaskPoolMapOperator[Project]
+    #             -> LimitOperator[limit=10]
+    #                -> TaskPoolMapOperator[Write]
     physical_plan = Planner().plan(optimized_logical_plan)
+    # 对 PhysicalPlan 执行优化得到 Optimized PhysicalPlan，例如算子融合，示例：
+    # InputDataBuffer[Input]
+    # -> TaskPoolMapOperator[ReadCSV->Filter(<lambda>)->MapBatches(cal_image_size)->Project]
+    #    -> LimitOperator[limit=10]
+    #       -> TaskPoolMapOperator[Write]
     return PhysicalOptimizer().optimize(physical_plan)

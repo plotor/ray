@@ -181,9 +181,11 @@ class FileBasedDatasource(Datasource):
         open_stream_args = self._open_stream_args
         partitioning = self._partitioning
 
+        # 获取文件路径列、大小列表
         paths = self._paths()
         file_sizes = self._file_sizes()
 
+        # 对文件路径和大小列表进行打乱
         if self._file_metadata_shuffler is not None:
             files_metadata = list(zip(paths, file_sizes))
             shuffled_files_metadata = [
@@ -200,6 +202,7 @@ class FileBasedDatasource(Datasource):
 
         open_input_source = self._open_input_source
 
+        # 遍历逐一读取 path 对应的文件，按照 block 返回
         def read_files(
             read_paths: Iterable[str],
         ) -> Iterable[Block]:
@@ -257,13 +260,16 @@ class FileBasedDatasource(Datasource):
 
             return read_task_fn
 
+        # 限制并发度不能超过文件数
         # fix https://github.com/ray-project/ray/issues/24296
         parallelism = min(parallelism, len(paths))
 
         read_tasks = []
+        # 将文件路径列表尽量均匀切分成 parallelism 份
         split_paths = np.array_split(paths, parallelism)
         split_file_sizes = np.array_split(file_sizes, parallelism)
 
+        # 按照并行度创建对应数目的 ReadTask，每个 Task 分配一批文件路径
         for read_paths, file_sizes in zip(split_paths, split_file_sizes):
             if len(read_paths) <= 0:
                 continue
@@ -275,8 +281,8 @@ class FileBasedDatasource(Datasource):
                 file_sizes=file_sizes,
             )
 
+            # 为当前批次文件列表创建对应的 ReadTask
             read_task_fn = create_read_task_fn(read_paths, self._NUM_THREADS_PER_TASK)
-
             read_task = ReadTask(read_task_fn, meta)
 
             read_tasks.append(read_task)

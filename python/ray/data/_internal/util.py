@@ -150,6 +150,12 @@ def _autodetect_parallelism(
      4) Available CPUs. If the parallelism cannot make use of all the available
         CPUs in the cluster, the parallelism is increased until it can.
 
+    Ray Data 按照如下启发式策略控制读取数据集的并行度（aka. 将 Dataset 切分成多个 Block，一个 Block 对应一个 ReadTask）：
+    1. 默认最小会将 Dataset 切分成 200 个 Block，可以通过 `DataContext.read_op_min_num_blocks` 参数设置。
+    2. 默认保证最小 Block 大小为 1MB（可以通过 `DataContext.target_min_block_size` 参数设置），如果 Block 大小小于该值则减少 Block 数。
+    3. 默认保证最大 Block 大小为 128MB（可以通过 `DataContext.target_max_block_size` 参数设置），如果 Block 大小大于该值则增加 Block 数。
+    4. 依据集群可用 CPU 数，保证 Block 数目至少是集群可用 CPU 核数的 2 倍。
+
     Args:
         parallelism: The user-requested parallelism, or -1 for auto-detection.
         target_max_block_size: The target max block size to
@@ -172,10 +178,15 @@ def _autodetect_parallelism(
     """
     min_safe_parallelism = 1
     max_reasonable_parallelism = sys.maxsize
+
+    # 预估数据内存占用大小
     if mem_size is None and datasource_or_legacy_reader:
         mem_size = datasource_or_legacy_reader.estimate_inmemory_data_size()
+
     if mem_size is not None and not np.isnan(mem_size):
+        # 通过允许的 Block 大小上限（默认为 128M）限制最小并行度
         min_safe_parallelism = max(1, int(mem_size / target_max_block_size))
+        # 通过允许的 Block 大小下限（默认为 1M）限制最大并行度
         max_reasonable_parallelism = max(1, int(mem_size / ctx.target_min_block_size))
 
     reason = ""
@@ -197,6 +208,7 @@ def _autodetect_parallelism(
         # Start with 2x the number of cores as a baseline, with a min floor.
         if placement_group is None:
             placement_group = ray.util.get_current_placement_group()
+        # 估算可用的 CPU 数
         avail_cpus = avail_cpus or _estimate_avail_cpus(placement_group)
         parallelism = max(
             min(ctx.read_op_min_num_blocks, max_reasonable_parallelism),
